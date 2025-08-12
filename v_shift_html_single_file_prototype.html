@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V‑Shift — HTML Prototype</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --panel: #121826;
+      --accent: #66e0ff;
+      --accent2: #ff7ac6;
+      --good: #6fee8d;
+      --bad: #ff5d5d;
+      --text: #e6e6e6;
+      --muted: #9aa4b2;
+    }
+    html, body {
+      margin: 0; height: 100%; background: radial-gradient(1000px 800px at 70% -10%, #1a2032 0%, #0b0e14 60%); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; color: var(--text);
+      user-select: none;
+    }
+    #ui {
+      position: fixed; inset: 0; pointer-events: none; display: grid; grid-template-rows: auto 1fr auto; gap: 8px; padding: 12px;
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 10px 12px; backdrop-filter: blur(6px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .meter { height: 12px; width: 280px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+    .fill { height: 100%; background: linear-gradient(90deg, var(--good), #aaf0ff); width: 100%; }
+    .meter.bad .fill { background: linear-gradient(90deg, #ff8a8a, var(--bad)); }
+
+    .controls {
+      pointer-events: auto; max-width: 680px; line-height: 1.35; font-size: 14px; color: var(--muted);
+    }
+    .controls kbd { background: #111827; border: 1px solid #2b3245; border-bottom-color: #1a2032; color: #dbe5ff; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.5); }
+
+    .buttonbar { display: flex; gap: 8px; align-items: center; }
+    .btn { pointer-events: auto; background: #131a2a; color: #d3def6; border: 1px solid #2a3550; border-radius: 12px; padding: 8px 12px; cursor: pointer; transition: transform .06s ease, filter .2s ease; }
+    .btn:hover { filter: brightness(1.2); }
+    .btn:active { transform: translateY(1px); }
+
+    #notice { text-align: center; font-size: 12px; color: #a8b3c5; opacity: .7; }
+
+    canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="1280" height="720" aria-label="V‑Shift HTML Prototype"></canvas>
+  <div id="ui">
+    <div class="topbar">
+      <div class="card" style="display:flex;align-items:center;gap:12px;">
+        <div>
+          <div style="font-weight:700; letter-spacing:.3px;">V‑Shift — HTML Prototype</div>
+          <div style="font-size:12px;color:var(--muted);">Velocity = Damage • Local 1P vs Bot • Rewind • Jump Pads • Portals • Speed Pads</div>
+        </div>
+      </div>
+      <div class="card" style="display:flex;align-items:center;gap:16px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#cfe9ff;">P1 Health</span>
+          <div class="meter" aria-label="P1 health"><div id="hp1" class="fill"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#ffd2e9;">Bot Health</span>
+          <div class="meter bad" aria-label="Bot health"><div id="hp2" class="fill"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#ffeaa7;">Timer</span>
+          <div class="card" style="padding:6px 10px;border-radius:10px;min-width:64px;text-align:center;"> <span id="timer">03:00</span> </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:#c6f6d5;">Score</span>
+          <div class="card" style="padding:6px 10px;border-radius:10px;min-width:64px;text-align:center;"> <span id="score">0 — 0</span> </div>
+        </div>
+        <div class="buttonbar">
+          <button class="btn" id="btnReset" title="Reset match (R)">Reset</button>
+          <button class="btn" id="btnPause" title="Pause (P)">Pause</button>
+          <button class="btn" id="btnSlowmo" title="Toggle Slow‑mo (T)">Slow‑mo</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls card">
+      <b>Controls:</b>
+      <div style="margin-top:6px">
+        <b>Move</b> <kbd>A</kbd>/<kbd>D</kbd> • <b>Jump</b> <kbd>W</kbd>/<kbd>Space</kbd> • <b>Dash</b> <kbd>Shift</kbd> • <b>Attack</b> <kbd>F</kbd> • <b>Rewind (3s)</b> <kbd>E</kbd> • <b>Pause</b> <kbd>P</kbd> • <b>Reset</b> <kbd>R</kbd> • <b>Slow‑mo</b> <kbd>T</kbd>
+      </div>
+      <div style="margin-top:6px">Damage scales with your current speed. Faster hits = stronger damage & knockback. Build speed using jump pads, speed pads, dashes and portals.</div>
+    </div>
+
+    <div id="notice">This is a single‑file, non‑commercial fan prototype for demonstration/education. Art is abstract; physics and AI are simplified.</div>
+  </div>
+
+  <script>
+  /*
+    V‑Shift — HTML Prototype (Single file)
+    Key features implemented:
+      - 2D platform movement + basic physics & collisions
+      - Momentum‑scaled damage (Velocity = Damage)
+      - Short‑range melee attack (directional hitbox)
+      - Knockback proportional to dealt damage
+      - Rewind ability (3 seconds snapshot) + brief i‑frames
+      - Local 1P vs simple Bot AI (chase, jump, attack)
+      - Level items: jump pads, speed pads, portals, hazard (compactor)
+      - Match timer, health, score, pause, slow‑mo
+
+    Author: ChatGPT
+  */
+
+  const TAU = Math.PI * 2;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // -----------------------------------------------------
+  // Utilities
+  // -----------------------------------------------------
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const sign = (v) => (v < 0 ? -1 : v > 0 ? 1 : 0);
+
+  function intersects(a, b) {
+    return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h);
+  }
+
+  // Simple event system for SFX pulses (visuals only)
+  const pulses = [];
+  function pulse(x, y, color = 'white', life = 0.35) {
+    pulses.push({ x, y, r: 8, t: life, life, color });
+  }
+
+  // -----------------------------------------------------
+  // Input
+  // -----------------------------------------------------
+  const keys = new Map();
+  const key = (k) => keys.get(k) || false;
+  addEventListener('keydown', (e) => { keys.set(e.key.toLowerCase(), true); if([' '].includes(e.key)) e.preventDefault(); });
+  addEventListener('keyup', (e) => { keys.set(e.key.toLowerCase(), false); });
+
+  // Buttons
+  document.getElementById('btnReset').onclick = () => resetMatch();
+  const btnPause = document.getElementById('btnPause');
+  const btnSlow = document.getElementById('btnSlowmo');
+  btnPause.onclick = () => { paused = !paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; };
+  btnSlow.onclick  = () => { slowmo = !slowmo; btnSlow.textContent = slowmo ? 'Normal‑speed' : 'Slow‑mo'; };
+
+  // -----------------------------------------------------
+  // World & Level
+  // -----------------------------------------------------
+  const GRAV = 2200; // px/s^2
+  const FRICTION_GROUND = 0.82;
+  const FRICTION_AIR = 0.985;
+  const MAX_RUN_SPEED = 520;
+  const ACCEL = 2800;
+  const JUMP_V = 900;
+  const DASH_V = 950;
+  const DASH_CD = 0.9; // s
+  const ATTACK_CD = 0.32; // s
+  const ATTACK_TIME = 0.12;
+  const ATTACK_BASE = 8; // base damage
+  const ATTACK_SCALE = 0.025; // * speed
+
+  const REWIND_TIME = 3.0; // seconds to rewind
+  const REWIND_CD = 7.0;
+  const IF_TIME = 0.8; // i‑frames after rewind or spawn
+
+  const HAZARD_DPS = 60;
+
+  const RESPAWN_TIME = 2.0;
+  const MATCH_TIME = 180; // 3 minutes
+
+  const level = {
+    // Platforms: {x,y,w,h}
+    plats: [
+      {x:0,y:H-50,w:W,h:60}, // ground
+      {x:160,y:H-180,w:260,h:24},
+      {x:520,y:H-320,w:240,h:24},
+      {x:920,y:H-220,w:240,h:24},
+      {x:100,y:H-480,w:200,h:24},
+      {x:420,y:H-560,w:220,h:24},
+      {x:760,y:H-480,w:220,h:24},
+      {x:1040,y:H-560,w:200,h:24},
+    ],
+    // Jump pads: vertical impulse
+    jumpPads: [
+      {x: 260, y:H-204, w:60, h:24, pow:1200},
+      {x:1020, y:H-244, w:60, h:24, pow:1200},
+    ],
+    // Speed pads: horizontal boost
+    speedPads: [
+      {x: 560, y:H-344, w:180, h:16, pow:1200},
+    ],
+    // Portals: paired by index
+    portals: [
+      {x: 64,  y:H-140, w:22, h:64, to:1},
+      {x: W-86, y:H-580, w:22, h:64, to:0},
+    ],
+    // Hazard compactor: sweeps vertically in the middle
+    compactor: { x: W/2 - 30, y: H-260, w: 60, h: 200, t: 0, period: 6.5 },
+    spawns: [ {x: 150, y: H-260}, {x: W-180, y: H-620} ]
+  };
+
+  // -----------------------------------------------------
+  // Entities
+  // -----------------------------------------------------
+  class Fighter {
+    constructor(opts) {
+      Object.assign(this, {x:0,y:0,w:36,h:56,vx:0,vy:0,ax:0,ay:0, onGround:false, face:1, hp:100, score:0, color:'#9bd5ff'});
+      this.type = opts?.type || 'P1';
+      this.color = opts?.color || this.color;
+      this.spawn = opts?.spawn || {x:100,y:100};
+      this.x = this.spawn.x; this.y = this.spawn.y;
+      this.attackTimer = 0; this.attackCD = 0; this.dashCD = 0; this.invuln = 1.0; this.dead = false; this.respawnT = 0;
+      this.rewindCD = 0; this.rewinding = false; this.history = []; this.historyMax = 60*REWIND_TIME + 2;
+    }
+    rect(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+    speed(){ return Math.hypot(this.vx, this.vy); }
+
+    takeDamage(dmg, kbX, kbY) {
+      if (this.invuln > 0 || this.dead) return;
+      this.hp -= dmg;
+      this.vx += kbX; this.vy += kbY;
+      pulse(this.x + this.w/2, this.y, '#ff9aa2');
+      if (this.hp <= 0) this.die();
+    }
+    die(){ this.dead = true; this.respawnT = RESPAWN_TIME; this.vx = this.vy = 0; }
+    respawnAt(spawn){ this.x = spawn.x; this.y = spawn.y; this.hp = 100; this.invuln = IF_TIME; this.dead = false; }
+
+    update(dt){
+      // Record history for rewind
+      this.history.push({x:this.x, y:this.y, vx:this.vx, vy:this.vy});
+      if (this.history.length > this.historyMax) this.history.shift();
+
+      if (this.dead) { this.respawnT -= dt; if (this.respawnT <= 0) this.respawnAt(this.spawn); return; }
+
+      // Physics
+      this.ay = GRAV;
+      this.vx += this.ax * dt; this.vy += this.ay * dt;
+      // Friction
+      this.vx *= this.onGround ? FRICTION_GROUND : FRICTION_AIR;
+      this.vx = clamp(this.vx, -MAX_RUN_SPEED*1.6, MAX_RUN_SPEED*1.6);
+
+      this.x += this.vx * dt;
+      this.collideX();
+      this.y += this.vy * dt;
+      this.collideY();
+
+      // Timers
+      this.invuln = Math.max(0, this.invuln - dt);
+      this.attackTimer = Math.max(0, this.attackTimer - dt);
+      this.attackCD = Math.max(0, this.attackCD - dt);
+      this.dashCD   = Math.max(0, this.dashCD   - dt);
+      this.rewindCD = Math.max(0, this.rewindCD - dt);
+
+      // Level interactions
+      this.handlePads(dt);
+      this.handlePortals(dt);
+    }
+
+    collideX(){
+      this.onGround = false; // reset here; restored in Y collision if grounded
+      const r = this.rect();
+      for (const p of level.plats) {
+        if (intersects(r, p)) {
+          if (this.vx > 0) this.x = p.x - this.w; else if (this.vx < 0) this.x = p.x + p.w;
+          this.vx = 0; r.x = this.x; // update for subsequent checks
+        }
+      }
+      // Bounds
+      if (this.x < 0){ this.x = 0; this.vx = Math.abs(this.vx)*0.5; this.face = 1; }
+      if (this.x + this.w > W){ this.x = W - this.w; this.vx = -Math.abs(this.vx)*0.5; this.face = -1; }
+    }
+    collideY(){
+      const r = this.rect();
+      for (const p of level.plats) {
+        if (intersects(r, p)) {
+          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; }
+          else if (this.vy < 0) { this.y = p.y + p.h; }
+          this.vy = 0; r.y = this.y;
+        }
+      }
+      if (this.y + this.h > H){ this.y = H - this.h; this.vy = 0; this.onGround = true; }
+      if (this.y < 0){ this.y = 0; this.vy = 0; }
+    }
+
+    handlePads(dt){
+      const r = this.rect();
+      for (const j of level.jumpPads) if (intersects(r, j) && this.vy >= 0) { this.vy = -j.pow; pulse(this.x+this.w/2, this.y+this.h, '#9bf6ff'); }
+      for (const s of level.speedPads) if (intersects(r, s)) { this.vx += this.face * (s.pow*dt); pulse(this.x+this.w/2, this.y+this.h, '#caffbf'); }
+      // Hazard compactor
+      const c = level.compactor; const cr = {x:c.x, y:c.y, w:c.w, h:c.h};
+      if (intersects(r, cr)) this.takeDamage(HAZARD_DPS*dt, (this.x+this.w/2<c.x+c.w/2?-160:160)*dt, -120*dt);
+    }
+
+    handlePortals(dt){
+      const r = this.rect();
+      for (let i=0;i<level.portals.length;i++){
+        const po = level.portals[i];
+        if (intersects(r, po)){
+          const dest = level.portals[po.to];
+          // offset to prevent immediate retrigger
+          this.x = dest.x + (dest.w + 10) * (this.face>0?1:-1);
+          this.y = dest.y;
+          pulse(this.x+this.w/2, this.y+this.h/2, '#ffd6a5');
+        }
+      }
+    }
+
+    dash(){ if (this.dashCD>0 || this.dead) return; this.vx += this.face * DASH_V; this.vy *= 0.7; this.dashCD = DASH_CD; pulse(this.x+this.w/2, this.y+this.h/2, '#a0c4ff'); }
+
+    tryAttack(){
+      if (this.attackCD>0 || this.dead) return null;
+      this.attackCD = ATTACK_CD; this.attackTimer = ATTACK_TIME; pulse(this.x + this.w/2 + this.face*30, this.y+this.h/2, '#ffadad');
+      // Return hitbox rect
+      const reach = 42;
+      return { x: this.x + (this.face>0 ? this.w : -reach), y: this.y + 8, w: reach, h: this.h - 16 };
+    }
+
+    rewind(){
+      if (this.rewindCD>0 || this.history.length < 10 || this.dead) return;
+      const framesBack = Math.min(this.history.length-1, Math.floor(60*REWIND_TIME));
+      const snap = this.history[this.history.length-1-framesBack];
+      if (!snap) return;
+      this.x = snap.x; this.y = snap.y; this.vx = snap.vx; this.vy = snap.vy;
+      this.invuln = IF_TIME; this.rewindCD = REWIND_CD; pulse(this.x+this.w/2, this.y+this.h/2, '#bdb2ff');
+    }
+
+    draw(){
+      // Body
+      const g = ctx;
+      g.save();
+      // Flicker if invulnerable
+      const alpha = this.invuln>0 ? (0.5 + 0.5*Math.sin(perf*16)) : 1;
+      g.globalAlpha = alpha;
+      g.translate(this.x + this.w/2, this.y + this.h/2);
+      if (this.face<0) g.scale(-1,1);
+
+      // Silhouette
+      g.fillStyle = this.color;
+      roundRect(g, -this.w/2, -this.h/2, this.w, this.h, 10);
+      g.fill();
+
+      // Eyes
+      g.fillStyle = '#0b0e14';
+      g.fillRect(4, -6, 10, 4);
+      g.fillRect(18, -6, 10, 4);
+
+      // Arm swing during attack
+      if (this.attackTimer>0){
+        const t = 1 - (this.attackTimer/ATTACK_TIME);
+        g.save();
+        g.translate(22, 4);
+        g.rotate(-0.5 + t*1.8);
+        g.fillStyle = '#ffd6a5';
+        g.fillRect(0, -4, 22, 8);
+        g.restore();
+      }
+      g.restore();
+
+      // Draw i‑frame shimmer
+      if (this.invuln>0){
+        ctx.strokeStyle = 'rgba(200,220,255,0.7)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x-2, this.y-2, this.w+4, this.h+4);
+      }
+    }
+  }
+
+  class Bot extends Fighter {
+    constructor(opts){ super(opts); this.color = '#ffb3d1'; this.aiT=0; }
+    think(dt, target){
+      if (this.dead) return;
+      this.aiT += dt;
+      const dx = (target.x - this.x);
+      this.face = sign(dx)||this.face;
+      // Move toward target with a little jitter to build speed
+      const desired = clamp(dx*1.2, -MAX_RUN_SPEED, MAX_RUN_SPEED);
+      this.ax = clamp((desired - this.vx)*6, -ACCEL*1.4, ACCEL*1.4);
+      // Jump if target is above and there's a platform edge close
+      const above = (target.y + 10) < this.y;
+      const close = Math.abs(dx) < 120;
+      if (above && this.onGround && Math.random()<0.04) this.vy = -JUMP_V;
+      if (Math.random()<0.005 && this.onGround) this.dash();
+      // Attack when close and roughly aligned
+      if (Math.abs(dx) < 60 && Math.abs(target.y - this.y) < 50 && this.attackCD<=0) this.pendingAttack = this.tryAttack();
+    }
+  }
+
+  // -----------------------------------------------------
+  // Rendering helpers
+  // -----------------------------------------------------
+  function roundRect(g, x, y, w, h, r){
+    g.beginPath();
+    g.moveTo(x+r, y);
+    g.arcTo(x+w, y, x+w, y+h, r);
+    g.arcTo(x+w, y+h, x, y+h, r);
+    g.arcTo(x, y+h, x, y, r);
+    g.arcTo(x, y, x+w, y, r);
+    g.closePath();
+  }
+
+  function drawLevel(dt){
+    // Parallax grid backdrop
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    for (let i=0;i<40;i++){
+      const y = i*(H/40);
+      ctx.fillStyle = i%8===0? '#2c3654' : '#1a2135';
+      ctx.fillRect(0, y, W, 1);
+    }
+    for (let i=0;i<40;i++){
+      const x = i*(W/40);
+      ctx.fillStyle = i%8===0? '#273055' : '#1a2135';
+      ctx.fillRect(x, 0, 1, H);
+    }
+    ctx.restore();
+
+    // Platforms
+    for (const p of level.plats){
+      const grd = ctx.createLinearGradient(p.x, p.y, p.x, p.y+p.h);
+      grd.addColorStop(0, '#141b2b');
+      grd.addColorStop(1, '#0e1422');
+      ctx.fillStyle = grd;
+      roundRect(ctx, p.x, p.y, p.w, p.h, 8);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.stroke();
+    }
+
+    // Jump pads
+    for (const j of level.jumpPads){
+      ctx.fillStyle = '#9bf6ff';
+      roundRect(ctx, j.x, j.y, j.w, j.h, 8); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(j.x+8, j.y+4, j.w-16, j.h-8);
+    }
+
+    // Speed pads
+    for (const s of level.speedPads){
+      ctx.fillStyle = '#caffbf'; roundRect(ctx, s.x, s.y, s.w, s.h, 6); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(s.x+6, s.y+3, s.w-12, s.h-6);
+    }
+
+    // Portals
+    for (const po of level.portals){
+      const t = perf;
+      ctx.save();
+      ctx.translate(po.x+po.w/2, po.y+po.h/2);
+      ctx.rotate(Math.sin(t*2)*0.08);
+      ctx.strokeStyle = '#ffd6a5'; ctx.lineWidth = 3;
+      roundRect(ctx, -po.w/2, -po.h/2, po.w, po.h, 10); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Compactor
+    const c = level.compactor;
+    c.t += dt; const k = (Math.sin((c.t/c.period)*TAU - Math.PI/2)*0.5+0.5); // 0..1
+    c.y = lerp(120, H-420, k);
+    ctx.fillStyle = '#ffb4a2'; roundRect(ctx, c.x, c.y, c.w, c.h, 10); ctx.fill();
+  }
+
+  function drawPulses(dt){
+    for (let i=pulses.length-1;i>=0;i--){
+      const p = pulses[i]; p.t -= dt; p.r += 80*dt; if (p.t<=0) pulses.splice(i,1);
+      ctx.strokeStyle = p.color; ctx.globalAlpha = clamp(p.t/p.life, 0, 1); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawHUD(){
+    // Health meters
+    document.getElementById('hp1').style.width = clamp(p1.hp,0,100) + '%';
+    document.getElementById('hp2').style.width = clamp(bot.hp,0,100) + '%';
+    // Timer & score
+    const m = Math.floor(matchTime/60), s = Math.floor(matchTime%60).toString().padStart(2,'0');
+    document.getElementById('timer').textContent = `${m}:${s}`;
+    document.getElementById('score').textContent = `${p1.score} — ${bot.score}`;
+  }
+
+  // -----------------------------------------------------
+  // Game loop
+  // -----------------------------------------------------
+  let last = performance.now();
+  let perf = 0;
+  let paused = false; let slowmo = false; let matchTime = MATCH_TIME; let ended = false;
+
+  // Fighters
+  const p1 = new Fighter({ type:'P1', color:'#9bd5ff', spawn: level.spawns[0] });
+  const bot = new Bot({ type:'BOT', color:'#ffb3d1', spawn: level.spawns[1] });
+
+  function resetMatch(){
+    p1.score = bot.score = 0; matchTime = MATCH_TIME; ended=false; p1.respawnAt(level.spawns[0]); bot.respawnAt(level.spawns[1]);
+  }
+
+  function logic(dt){
+    if (ended) return;
+    matchTime -= dt; if (matchTime<=0){ matchTime = 0; ended=true; paused=true; alert(`Match over! ${p1.score>bot.score?'You win!':p1.score<bot.score?'Bot wins!':'Draw!'}`); return; }
+
+    // P1 input
+    const left = key('a'), right = key('d'), jump = key('w')||key(' ');
+    const dash = key('shift'); const atk = key('f'); const rewind = key('e');
+
+    p1.ax = 0;
+    if (left)  { p1.ax -= ACCEL; p1.face = -1; }
+    if (right) { p1.ax += ACCEL; p1.face =  1; }
+    if (jump && p1.onGround) { p1.vy = -JUMP_V; pulse(p1.x+p1.w/2, p1.y+p1.h, '#bde0fe'); }
+    if (dash) p1.dash();
+    if (atk && p1.attackCD<=0) p1.pendingAttack = p1.tryAttack();
+    if (rewind) p1.rewind();
+
+    // Bot AI
+    bot.think(dt, p1);
+
+    // Update bodies
+    p1.update(dt);
+    bot.update(dt);
+
+    // Resolve attacks (if any)
+    function resolveAttack(attacker, victim){
+      if (!attacker.pendingAttack || attacker.attackTimer<=0) return;
+      const hb = attacker.pendingAttack;
+      const vr = victim.rect();
+      if (intersects(hb, vr)){
+        const speed = attacker.speed();
+        const dmg = Math.round(ATTACK_BASE + ATTACK_SCALE * speed);
+        const kb = dmg * 16;
+        const kx = attacker.face * kb; const ky = -Math.max(120, dmg*4);
+        victim.takeDamage(dmg, kx, ky);
+        // small recoil
+        attacker.vx -= attacker.face * Math.min(120, dmg*4);
+        attacker.pendingAttack = null; // single hit
+      }
+    }
+    resolveAttack(p1, bot);
+    resolveAttack(bot, p1);
+
+    // Scoring on death
+    if (p1.dead && p1.respawnT===RESPAWN_TIME) bot.score += 1;
+    if (bot.dead && bot.respawnT===RESPAWN_TIME) p1.score += 1;
+  }
+
+  function render(dt){
+    ctx.clearRect(0,0,W,H);
+    drawLevel(dt);
+
+    // Draw attack hitboxes (debug-ish)
+    function drawAttackHB(f){ if (!f.pendingAttack || f.attackTimer<=0) return; const hb=f.pendingAttack; ctx.globalAlpha=0.25; ctx.fillStyle=f===p1?'#ffccd5':'#cdeffd'; ctx.fillRect(hb.x, hb.y, hb.w, hb.h); ctx.globalAlpha=1; }
+    drawAttackHB(p1); drawAttackHB(bot);
+
+    // Draw fighters
+    p1.draw();
+    bot.draw();
+
+    // Pulses & particles
+    drawPulses(dt);
+
+    // Floor speed lines near speed pads
+    for (const s of level.speedPads){
+      const n = 8; for(let i=0;i<n;i++){ const x = s.x + ((i*80 + (perf*180)%80)%s.w); ctx.globalAlpha=0.25; ctx.fillStyle='#edffd8'; ctx.fillRect(x, s.y-8, 24, 2); ctx.globalAlpha=1; }
+    }
+
+    // Debug: show text when invuln
+    // (kept minimal for cleanliness)
+  }
+
+  function tick(){
+    let now = performance.now();
+    let dt = (now - last)/1000;
+    perf += dt; last = now;
+    if (slowmo) dt *= 0.35;
+
+    if (!paused){ logic(dt); render(dt); }
+    drawHUD();
+
+    requestAnimationFrame(tick);
+  }
+
+  // Hotkeys
+  addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    if (k==='p'){ paused=!paused; btnPause.textContent = paused ? 'Resume' : 'Pause'; }
+    if (k==='t'){ slowmo=!slowmo; btnSlow.textContent = slowmo ? 'Normal‑speed' : 'Slow‑mo'; }
+    if (k==='r'){ resetMatch(); }
+  });
+
+  // Start
+  resetMatch();
+  tick();
+
+  </script>
+</body>
+</html>
